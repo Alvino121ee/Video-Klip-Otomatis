@@ -50,13 +50,16 @@ async function ensureCookies(): Promise<string[]> {
   return ["--cookies", COOKIES_FILE];
 }
 
+// Path ke yt-dlp — gunakan binary terbaru (2026+) jika tersedia
+const YTDLP_BIN = "/home/runner/workspace/.pythonlibs/bin/yt-dlp-new";
+
 // Argumen yt-dlp standar
 async function ytdlpBase(): Promise<string[]> {
   return [
     "--no-playlist",
     "--no-check-certificates",
-    // Workaround untuk SABR streaming YouTube (yt-dlp issue #12482)
-    "--extractor-args", "youtube:player_client=tv,web",
+    // Android client: tidak punya nsig/SABR issue
+    "--extractor-args", "youtube:player_client=android",
     ...await ensureCookies(),
   ];
 }
@@ -273,7 +276,7 @@ async function downloadSubtitles(url: string, tmpDir: string, language: string =
   segments: Array<{ start: number; end: number; text: string }>;
 } | null> {
   try {
-    await execFileAsync("yt-dlp", [
+    await execFileAsync(YTDLP_BIN, [
       "--write-auto-subs",
       "--sub-langs", `${language}.*`,
       "--skip-download",
@@ -344,7 +347,7 @@ function parseSubtitles(content: string): { transcript: string; segments: Array<
 }
 
 async function downloadAudio(url: string, outputPath: string): Promise<void> {
-  await execFileAsync("yt-dlp", [
+  await execFileAsync(YTDLP_BIN, [
     "-x", "--audio-format", "wav", "--audio-quality", "3",
     "--output", outputPath,
     ...await ytdlpBase(),
@@ -367,7 +370,7 @@ async function runWhisper(audioPath: string, language: string = "id"): Promise<{
 
 async function getVideoDuration(url: string): Promise<number> {
   try {
-    const { stdout } = await execFileAsync("yt-dlp", [
+    const { stdout } = await execFileAsync(YTDLP_BIN, [
       "--no-playlist",
       "--print", "duration",
       url,
@@ -467,7 +470,7 @@ async function downloadVideoSections(url: string, outputPath: string, sections: 
     sectionArgs.push("--download-sections", `*${s.start}-${s.end}`);
   }
 
-  await execFileAsync("yt-dlp", [
+  await execFileAsync(YTDLP_BIN, [
     "-f", "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
     "--merge-output-format", "mp4",
     ...sectionArgs,
