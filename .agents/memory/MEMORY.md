@@ -1,0 +1,1 @@
+- [esbuild __dirname paths](path-resolution-esbuild.md) — `__dirname` in compiled bundle = `dist/`; use `../public` and `../scripts`, NOT `../../`.

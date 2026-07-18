@@ -29,9 +29,9 @@ function getDeepseek(): OpenAI {
 }
 
 const WHISPER_PYTHON = process.env.WHISPER_PYTHON ?? "python3";
-const TRANSCRIBE_SCRIPT = path.resolve(__dirname, "../../scripts/transcribe.py");
-const FETCH_TRANSCRIPT_SCRIPT = path.resolve(__dirname, "../../scripts/fetch_transcript.py");
-const PUBLIC_DIR = path.resolve(__dirname, "../../public");
+const TRANSCRIBE_SCRIPT = path.resolve(__dirname, "../scripts/transcribe.py");
+const FETCH_TRANSCRIPT_SCRIPT = path.resolve(__dirname, "../scripts/fetch_transcript.py");
+const PUBLIC_DIR = path.resolve(__dirname, "../public");
 const CLIPS_DIR = path.join(PUBLIC_DIR, "clips");
 const TEMP_DIR = "/tmp/clipper-processing";
 const COOKIES_FILE = "/tmp/yt-cookies.txt";
@@ -50,8 +50,8 @@ async function ensureCookies(): Promise<string[]> {
   return ["--cookies", COOKIES_FILE];
 }
 
-// Path ke yt-dlp — gunakan binary terbaru (2026+) jika tersedia
-const YTDLP_BIN = "/home/runner/workspace/.pythonlibs/bin/yt-dlp-new";
+// Path ke yt-dlp — ELF binary standalone 2026.07.04 (tidak butuh Python)
+const YTDLP_BIN = "/home/runner/workspace/.pythonlibs/bin/yt-dlp-latest";
 
 // Argumen yt-dlp standar
 async function ytdlpBase(): Promise<string[]> {
@@ -195,13 +195,25 @@ export async function realAiProcessing(
     const videoPath = path.join(tmpDir, "video.mp4");
     await setProgress(65);
 
-    // Download with sections covering all clips (more efficient)
-    const sections = buildSections(topMoments, durations);
-    await downloadVideoSections(videoUrl, videoPath, sections);
+    // Try to download video — if it fails (bot detection, IP block, etc.)
+    // we still save the AI analysis and moments as useful partial output.
+    let videoDownloaded = false;
+    try {
+      const sections = buildSections(topMoments, durations);
+      await downloadVideoSections(videoUrl, videoPath, sections);
+      videoDownloaded = true;
+    } catch (dlErr: any) {
+      const msg = dlErr?.stderr ?? dlErr?.message ?? String(dlErr);
+      console.error(`[video-download] Gagal download video (${msg.slice(0, 200)}). Melanjutkan dengan data AI saja.`);
+      // Update error message tapi jangan hentikan proses
+      await db.update(projectsTable)
+        .set({ errorMessage: `Video tidak bisa didownload (YouTube bot detection atau cookies expired). Momen AI tetap tersimpan. Detail: ${msg.slice(0, 300)}` })
+        .where(eq(projectsTable.id, projectId));
+    }
 
     await setProgress(80);
 
-    // Extract each clip and thumbnail
+    // Extract each clip and thumbnail (only if video was downloaded)
     const clipInserts = [];
     for (let i = 0; i < topMoments.length; i++) {
       const moment = topMoments[i];
@@ -210,28 +222,32 @@ export async function realAiProcessing(
       const end = Math.min(start + dur, videoDuration);
       const format = formats[i % formats.length];
 
-      const clipFile = `clip-${i}.mp4`;
-      const thumbFile = `thumb-${i}.jpg`;
-      const clipPath = path.join(clipsOut, clipFile);
-      const thumbPath = path.join(clipsOut, thumbFile);
-
       const clipUrlBase = `/api/media/clips/project-${projectId}`;
+      let clipFileUrl: string | null = null;
+      let thumbFileUrl: string | null = null;
 
-      try {
-        await extractClip(videoPath, clipPath, start, end, format);
-        await extractThumbnail(videoPath, thumbPath, start + (end - start) * 0.3);
-      } catch {
-        // If clip extraction fails, record without file (still useful data)
+      if (videoDownloaded) {
+        const clipFile = `clip-${i}.mp4`;
+        const thumbFile = `thumb-${i}.jpg`;
+        const clipPath = path.join(clipsOut, clipFile);
+        const thumbPath = path.join(clipsOut, thumbFile);
+
+        try {
+          await extractClip(videoPath, clipPath, start, end, format);
+          await extractThumbnail(videoPath, thumbPath, start + (end - start) * 0.3);
+        } catch {
+          // clip extraction failed, continue without file
+        }
+
+        if (await fileExists(clipPath)) clipFileUrl = `${clipUrlBase}/${clipFile}`;
+        if (await fileExists(thumbPath)) thumbFileUrl = `${clipUrlBase}/${thumbFile}`;
       }
-
-      const clipFileExists = await fileExists(clipPath);
-      const thumbFileExists = await fileExists(thumbPath);
 
       clipInserts.push({
         projectId,
         title: moment.clipTitle ?? moment.transcript?.slice(0, 80) ?? `Clip ${i + 1}`,
-        thumbnailUrl: thumbFileExists ? `${clipUrlBase}/${thumbFile}` : null,
-        videoUrl: clipFileExists ? `${clipUrlBase}/${clipFile}` : null,
+        thumbnailUrl: thumbFileUrl,
+        videoUrl: clipFileUrl,
         startTime: start,
         endTime: end,
         duration: end - start,
