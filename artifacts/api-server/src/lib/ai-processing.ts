@@ -73,7 +73,8 @@ export async function realAiProcessing(
     let fullTranscript: string;
     let videoDuration: number = project.duration ?? 0;
 
-    const subResult = await downloadSubtitles(videoUrl, tmpDir);
+    const language = project.language ?? "id";
+    const subResult = await downloadSubtitles(videoUrl, tmpDir, language);
 
     if (subResult) {
       ({ segments, transcript: fullTranscript } = subResult);
@@ -87,7 +88,7 @@ export async function realAiProcessing(
       const audioPath = path.join(tmpDir, "audio.wav");
       await downloadAudio(videoUrl, audioPath);
       await setProgress(20);
-      const whisperResult = await runWhisper(audioPath);
+      const whisperResult = await runWhisper(audioPath, language);
       segments = whisperResult.segments;
       fullTranscript = whisperResult.transcript;
       if (!videoDuration) videoDuration = whisperResult.duration ?? 0;
@@ -218,14 +219,14 @@ export async function realAiProcessing(
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-async function downloadSubtitles(url: string, tmpDir: string): Promise<{
+async function downloadSubtitles(url: string, tmpDir: string, language: string = "id"): Promise<{
   transcript: string;
   segments: Array<{ start: number; end: number; text: string }>;
 } | null> {
   try {
     await execFileAsync("yt-dlp", [
       "--write-auto-subs",
-      "--sub-langs", "en.*",
+      "--sub-langs", `${language}.*`,
       "--skip-download",
       "--output", path.join(tmpDir, "subs.%(ext)s"),
       "--no-playlist",
@@ -302,14 +303,14 @@ async function downloadAudio(url: string, outputPath: string): Promise<void> {
   ], { timeout: 300_000 });
 }
 
-async function runWhisper(audioPath: string): Promise<{
+async function runWhisper(audioPath: string, language: string = "id"): Promise<{
   transcript: string;
   segments: Array<{ start: number; end: number; text: string }>;
   duration: number;
 }> {
   const { stdout } = await execFileAsync(
     WHISPER_PYTHON,
-    [TRANSCRIBE_SCRIPT, audioPath, "base"],
+    [TRANSCRIBE_SCRIPT, audioPath, "base", language],
     { timeout: 600_000, maxBuffer: 10 * 1024 * 1024 },
   );
   return JSON.parse(stdout);

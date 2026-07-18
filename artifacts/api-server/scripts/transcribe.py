@@ -8,11 +8,11 @@ import sys
 import json
 import os
 
-def transcribe(audio_path: str, model_size: str = "base"):
+def transcribe(audio_path: str, model_size: str = "base", language: str = None):
     from faster_whisper import WhisperModel
 
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=False)
+    segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=False, language=language or None)
 
     result_segments = []
     full_text_parts = []
@@ -39,9 +39,10 @@ if __name__ == "__main__":
 
     audio_path = sys.argv[1]
     model_size = sys.argv[2] if len(sys.argv) > 2 else "base"
+    language = sys.argv[3] if len(sys.argv) > 3 else None
 
     if not os.path.exists(audio_path):
         print(json.dumps({"error": f"File not found: {audio_path}"}))
         sys.exit(1)
 
-    transcribe(audio_path, model_size)
+    transcribe(audio_path, model_size, language)

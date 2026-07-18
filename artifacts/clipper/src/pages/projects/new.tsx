@@ -43,7 +43,7 @@ export default function NewProject() {
       videoUrl: "",
       videoSource: "url",
       category: "podcast",
-      language: "en",
+      language: "id",
     },
   });
 
@@ -206,6 +206,7 @@ export default function NewProject() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="id">Indonesian</SelectItem>
                           <SelectItem value="en">English</SelectItem>
                           <SelectItem value="es">Spanish</SelectItem>
                           <SelectItem value="fr">French</SelectItem>
