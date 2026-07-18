@@ -138,34 +138,30 @@ export default function ClipDetail() {
           <div className="relative rounded-2xl border border-white/10 bg-black overflow-hidden shadow-2xl mx-auto max-w-[350px] lg:max-w-none">
             {/* The actual player aspect ratio depends on format, defaulting to 9:16 for shorts/reels/tiktok */}
             <div className={`w-full relative ${clip.format === 'square' ? 'aspect-square' : 'aspect-[9/16]'}`}>
-              {clip.thumbnailUrl ? (
-                <>
-                  <img src={clip.thumbnailUrl} alt={clip.title} className="w-full h-full object-cover opacity-80" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-transparent transition-colors group cursor-pointer">
-                    <div className="h-16 w-16 rounded-full bg-primary/90 text-white flex items-center justify-center backdrop-blur-sm shadow-[0_0_30px_rgba(139,92,246,0.6)] transform group-hover:scale-110 transition-transform">
-                      <Play className="h-6 w-6 ml-1" />
-                    </div>
-                  </div>
-                </>
+              {clip.videoUrl ? (
+                <video
+                  key={clip.videoUrl}
+                  src={clip.videoUrl}
+                  poster={clip.thumbnailUrl ?? undefined}
+                  controls
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : clip.status === 'rendering' ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground bg-card/50">
+                  <RefreshCw className="h-8 w-8 animate-spin mb-4 text-primary" />
+                  <p>Rendering Video...</p>
+                </div>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground bg-card/50">
-                  {clip.status === 'rendering' ? (
-                    <>
-                      <RefreshCw className="h-8 w-8 animate-spin mb-4 text-primary" />
-                      <p>Rendering Video...</p>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-12 w-12 mb-4 opacity-20" />
-                      <p>Preview Unavailable</p>
-                    </>
-                  )}
+                  <Play className="h-12 w-12 mb-4 opacity-20" />
+                  <p>Preview Unavailable</p>
                 </div>
               )}
             </div>
 
             {/* Simulated subtitle overlay if enabled */}
-            {hasSubtitles && clip.hookText && clip.thumbnailUrl && clip.status !== 'rendering' && (
+            {hasSubtitles && clip.hookText && clip.videoUrl && clip.status !== 'rendering' && (
               <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 flex justify-center pointer-events-none px-4">
                 <span className={`text-center font-bold text-xl sm:text-2xl drop-shadow-md px-3 py-1 rounded
                   ${subtitleStyle === 'highlight' ? 'bg-primary/90 text-white' : ''}
