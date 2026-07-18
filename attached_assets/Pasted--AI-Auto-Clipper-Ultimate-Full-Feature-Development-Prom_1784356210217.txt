@@ -1,0 +1,584 @@
+# AI Auto Clipper Ultimate – Full Feature Development Prompt
+
+Bangun sebuah aplikasi web AI Auto Clipper modern dengan tampilan profesional, performa tinggi, dan arsitektur yang scalable. Tujuan aplikasi adalah mengubah video panjang menjadi video pendek (Shorts, Reels, TikTok) secara otomatis menggunakan AI.
+
+## Tujuan
+
+Membangun platform AI Auto Clipper yang mampu:
+
+* Menghasilkan klip viral secara otomatis.
+* Menggunakan AI untuk memahami isi video, bukan hanya memotong berdasarkan durasi.
+* Mendukung batch processing dan cloud rendering.
+* Siap digunakan sebagai layanan SaaS multi-user.
+
+---
+
+# Fitur Utama
+
+## 1. AI Viral Moment Detection
+
+Gunakan AI untuk mendeteksi momen terbaik berdasarkan:
+
+* Emosi suara
+* Pitch dan intonasi
+* Volume
+* Tawa
+* Teriakan
+* Hook
+* Cerita menarik
+* Punchline
+* Perdebatan
+* Momen edukatif
+* Momen mengejutkan
+* Perubahan ekspresi wajah
+* Perubahan gerakan
+
+Setiap momen diberi:
+
+* Viral Score (0–100)
+* Engagement Score
+* Retention Score
+* Confidence Score
+* Alasan pemilihan
+
+---
+
+## 2. AI Auto Clip
+
+Secara otomatis membuat banyak klip.
+
+Contoh:
+
+Video 2 jam
+
+↓
+
+20–100 clip otomatis
+
+Durasi dapat dipilih:
+
+* 15 detik
+* 30 detik
+* 45 detik
+* 60 detik
+* 90 detik
+* Custom
+
+---
+
+## 3. AI Hook Detection
+
+Cari 3–5 detik pertama paling menarik.
+
+Jika hook ada di tengah video,
+jadikan hook sebagai awal clip.
+
+---
+
+## 4. AI Smart Scene Detection
+
+Deteksi:
+
+* Pergantian scene
+* Perubahan kamera
+* Perubahan topik
+* Pergantian pembicara
+* Pergantian emosi
+
+---
+
+## 5. AI Topic Detection
+
+AI memahami isi video.
+
+Kategori:
+
+* Podcast
+* Gaming
+* Tutorial
+* Edukasi
+* Review
+* Interview
+* Ceramah
+* Berita
+* Streaming
+* Vlog
+* Komedi
+* Olahraga
+
+---
+
+## 6. AI Speech To Text
+
+Gunakan model transkripsi berkualitas tinggi.
+
+Mendukung:
+
+* Indonesia
+* Inggris
+* Jepang
+* Korea
+* Mandarin
+* Arab
+* Spanyol
+* Perancis
+* 100+ bahasa
+
+---
+
+## 7. AI Auto Subtitle
+
+Subtitle otomatis.
+
+Pilihan:
+
+* Word by Word
+* Karaoke
+* Highlight
+* Pop
+* Bounce
+* Glow
+* Fade
+* Zoom
+
+Support:
+
+* Font custom
+* Shadow
+* Outline
+* Gradient
+* Background
+* Emoji
+
+---
+
+## 8. AI Subtitle Translation
+
+Terjemahkan subtitle otomatis ke banyak bahasa.
+
+---
+
+## 9. AI Voice Dub
+
+Terjemahkan audio ke bahasa lain.
+
+Sinkron dengan gerakan bibir bila tersedia.
+
+---
+
+## 10. AI Voice Clone
+
+Clone suara pembicara.
+
+---
+
+## 11. AI Speaker Detection
+
+Deteksi banyak pembicara.
+
+Label:
+Speaker 1
+Speaker 2
+Speaker 3
+
+---
+
+## 12. AI Face Detection
+
+Deteksi semua wajah.
+
+---
+
+## 13. AI Face Tracking
+
+Crop otomatis mengikuti wajah.
+
+---
+
+## 14. AI Auto Reframe
+
+Landscape
+
+↓
+
+Vertical
+
+↓
+
+Square
+
+↓
+
+Horizontal
+
+Semua otomatis.
+
+---
+
+## 15. AI Dynamic Zoom
+
+Zoom otomatis saat:
+
+* emosi tinggi
+* poin penting
+* punchline
+
+---
+
+## 16. AI Auto Pan
+
+Gerakan kamera virtual mengikuti subjek.
+
+---
+
+## 17. AI Safe Area Detection
+
+Pastikan subtitle tidak tertutup UI TikTok, Shorts, maupun Reels.
+
+---
+
+## 18. AI Silence Removal
+
+Hapus jeda otomatis.
+
+---
+
+## 19. AI Filler Removal
+
+Hilangkan:
+
+* eh
+* emm
+* anu
+* jadi
+* oke
+
+---
+
+## 20. AI Audio Enhancement
+
+* Noise removal
+* Echo removal
+* Volume normalization
+* Compressor
+* Limiter
+
+---
+
+## 21. AI Background Music
+
+Tambah musik otomatis.
+
+Volume otomatis turun saat ada suara.
+
+---
+
+## 22. AI Sound Effect
+
+Tambahkan efek suara sesuai konteks.
+
+---
+
+## 23. AI Emoji Generator
+
+Tambahkan emoji otomatis berdasarkan kata atau emosi.
+
+---
+
+## 24. AI B-roll Generator
+
+Jika pembicara menyebut objek tertentu,
+AI menyisipkan B-roll yang relevan.
+
+---
+
+## 25. AI Stock Video Search
+
+Cari stock video otomatis.
+
+---
+
+## 26. AI Image Generator
+
+Jika B-roll tidak tersedia,
+hasilkan ilustrasi AI.
+
+---
+
+## 27. AI Thumbnail Generator
+
+Buat thumbnail otomatis.
+
+---
+
+## 28. AI Thumbnail Face Enhancement
+
+Perbesar wajah, tingkatkan kualitas, dan optimalkan ekspresi.
+
+---
+
+## 29. AI Title Generator
+
+Buat beberapa judul viral.
+
+---
+
+## 30. AI Description Generator
+
+Buat deskripsi SEO.
+
+---
+
+## 31. AI Hashtag Generator
+
+Generate hashtag berdasarkan isi video.
+
+---
+
+## 32. AI SEO Optimization
+
+Optimalkan metadata untuk platform video.
+
+---
+
+## 33. AI Content Rating
+
+Nilai:
+
+* Potensi viral
+* CTR
+* Watch Time
+* Retention
+* Engagement
+
+---
+
+## 34. AI Highlight Detection
+
+Deteksi otomatis:
+
+* Goal
+* Kill
+* Headshot
+* Lucu
+* Menang
+* Marah
+* Sedih
+* Tepuk tangan
+* Tawa
+
+---
+
+## 35. AI Learning System
+
+AI belajar dari:
+
+* View
+* Watch Time
+* Like
+* Komentar
+* Share
+* CTR
+* Retention
+
+Semakin banyak data,
+semakin pintar memilih clip.
+
+---
+
+## 36. AI Recommendation Engine
+
+Berikan saran:
+
+* Panjang clip terbaik
+* Hook terbaik
+* Thumbnail terbaik
+* Jam upload terbaik
+
+---
+
+## 37. Template System
+
+Simpan template:
+
+* Subtitle
+* Warna
+* Font
+* Intro
+* Outro
+* Logo
+* Watermark
+
+---
+
+## 38. Intro & Outro Generator
+
+Tambahkan intro dan outro otomatis.
+
+---
+
+## 39. Watermark Manager
+
+Kelola logo dan watermark per proyek.
+
+---
+
+## 40. Brand Kit
+
+Kelola:
+
+* Logo
+* Warna
+* Font
+* Preset
+
+---
+
+## 41. Batch Processing
+
+Upload ratusan video sekaligus.
+
+---
+
+## 42. Queue System
+
+Kelola antrean render.
+
+---
+
+## 43. Cloud Rendering
+
+Gunakan worker terpisah untuk rendering agar aplikasi tetap responsif.
+
+---
+
+## 44. GPU Rendering
+
+Gunakan GPU jika tersedia untuk encoding, decoding, AI inference, dan rendering.
+
+---
+
+## 45. Auto Upload
+
+Integrasi upload ke:
+
+* TikTok
+* YouTube Shorts
+* Instagram Reels
+* Facebook Reels
+
+---
+
+## 46. Scheduler
+
+Jadwalkan upload otomatis.
+
+---
+
+## 47. Analytics Dashboard
+
+Tampilkan:
+
+* Total video
+* Total clip
+* Render time
+* Viral score
+* Watch time
+* CTR
+* Retention
+* Upload history
+* Storage
+* GPU usage
+* Queue status
+
+---
+
+## 48. Admin Dashboard
+
+Kelola:
+
+* User
+* Subscription
+* API Keys
+* AI Models
+* Worker
+* Queue
+* Billing
+* Logs
+* Error Monitoring
+* Storage
+* Analytics
+
+---
+
+## 49. SaaS Features
+
+* Login
+* Register
+* OAuth
+* Subscription
+* Trial
+* Referral
+* Kuota render
+* Team Workspace
+* API Access
+* Webhook
+
+---
+
+## 50. Technical Requirements
+
+Frontend:
+
+* Next.js
+* React
+* TypeScript
+* Tailwind CSS
+* Shadcn UI
+
+Backend:
+
+* Node.js
+* NestJS atau Express
+* PostgreSQL
+* Prisma ORM
+* Redis
+* BullMQ
+
+Storage:
+
+* S3 Compatible
+* Cloudflare R2 atau MinIO
+
+AI:
+
+* Whisper atau model transkripsi setara
+* LLM untuk analisis konten
+* Vision Model untuk face/object detection
+* OCR untuk teks di video
+* Speaker Diarization
+* Embedding untuk pencarian semantik
+
+Video Processing:
+
+* FFmpeg
+* GPU Acceleration
+* Hardware Encoding
+
+Deployment:
+
+* Docker
+* Nginx
+* HTTPS
+* Worker Service
+* Horizontal Scaling
+
+Keamanan:
+
+* JWT
+* RBAC
+* Rate Limiting
+* Audit Log
+* Enkripsi data sensitif
+
+Kode harus modular, terdokumentasi, mudah diuji, memiliki API yang jelas, mendukung plugin di masa depan, serta dioptimalkan untuk performa tinggi dan skalabilitas.

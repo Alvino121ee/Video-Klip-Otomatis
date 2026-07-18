@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "AI Auto Clipper"
+version = "1.0.0"
+id = "artifacts/clipper"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25943
+
+[services.development]
+run = "pnpm --filter @workspace/clipper run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/clipper", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/clipper/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25943"
+BASE_PATH = "/"
