@@ -14,6 +14,14 @@ import path from "path";
 import OpenAI from "openai";
 import { db, projectsTable, clipsTable, viralMomentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import {
+  checkCutBoundaries,
+  detectSilenceBounds,
+  saveBrainPatterns,
+  updateBrainConfig,
+  logTrainingRun,
+  getBrainContext,
+} from "./self-critic";
 
 const execFileAsync = promisify(execFile);
 

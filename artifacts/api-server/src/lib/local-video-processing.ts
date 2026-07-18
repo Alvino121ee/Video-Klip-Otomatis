@@ -13,6 +13,14 @@ import path from "path";
 import OpenAI from "openai";
 import { db, projectsTable, clipsTable, viralMomentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import {
+  checkCutBoundaries,
+  detectSilenceBounds,
+  saveBrainPatterns,
+  updateBrainConfig,
+  logTrainingRun,
+  getBrainContext,
+} from "./self-critic";
 
 const execFileAsync = promisify(execFile);
 
@@ -125,9 +133,10 @@ export async function localVideoProcessing(
 
     await setProgress(40);
 
-    // ── STEP 4: Analisis DeepSeek ───────────────────────────────────
+    // ── STEP 4: Analisis DeepSeek (dengan konteks AI Brain) ────────
+    const brainContext = await getBrainContext(project.category ?? "vlog");
     const analysis = await analyzeWithDeepSeek(
-      fullTranscript, segments, videoDuration, maxClips, durations
+      fullTranscript, segments, videoDuration, maxClips, durations, brainContext
     );
 
     await setProgress(55);
