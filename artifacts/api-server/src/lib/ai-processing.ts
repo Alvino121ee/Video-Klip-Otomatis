@@ -17,11 +17,16 @@ import { eq } from "drizzle-orm";
 
 const execFileAsync = promisify(execFile);
 
-// DeepSeek API (OpenAI-compatible)
-const deepseek = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY ?? "",
-  baseURL: "https://api.deepseek.com",
-});
+// DeepSeek API (OpenAI-compatible) — lazy init so missing key doesn't crash startup
+let _deepseek: OpenAI | null = null;
+function getDeepseek(): OpenAI {
+  if (!_deepseek) {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not set. Please add it as a secret.");
+    _deepseek = new OpenAI({ apiKey, baseURL: "https://api.deepseek.com" });
+  }
+  return _deepseek;
+}
 
 const WHISPER_PYTHON = process.env.WHISPER_PYTHON ?? "python3";
 const TRANSCRIBE_SCRIPT = path.resolve(__dirname, "../../scripts/transcribe.py");
@@ -434,7 +439,7 @@ Rules:
 - Return exactly ${maxClips} moments sorted by viralScore descending
 - momentType must be one of the exact values listed`;
 
-  const response = await deepseek.chat.completions.create({
+  const response = await getDeepseek().chat.completions.create({
     model: "deepseek-chat",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
