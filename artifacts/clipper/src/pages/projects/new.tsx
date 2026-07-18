@@ -106,6 +106,8 @@ export default function NewProject() {
       formData.append("description", fields.description ?? "");
       formData.append("maxClips", "8");
       formData.append("clipDurations", JSON.stringify([30, 60]));
+      formData.append("enableSubtitles", "true");
+      formData.append("subtitleStyle", "highlight");
 
       const xhr = new XMLHttpRequest();
       xhr.upload.onprogress = (e) => {

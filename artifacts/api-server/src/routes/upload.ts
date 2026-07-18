@@ -53,6 +53,9 @@ router.post("/upload", upload.single("file"), async (req, res): Promise<void> =>
   let clipDurations: number[] = [30, 60];
   try { clipDurations = JSON.parse(req.body.clipDurations); } catch {}
   const maxClips = parseInt(req.body.maxClips, 10) || 8;
+  // Subtitles enabled by default; frontend can override with enableSubtitles=false
+  const enableSubtitles = req.body.enableSubtitles !== "false";
+  const subtitleStyle = (req.body.subtitleStyle as string) || "highlight";
 
   // Buat project
   const [project] = await db
@@ -70,7 +73,9 @@ router.post("/upload", upload.single("file"), async (req, res): Promise<void> =>
     .returning();
 
   // Mulai processing secara async
-  localVideoProcessing(project.id, req.file.path, { clipDurations, maxClips }).catch((err) => {
+  localVideoProcessing(project.id, req.file.path, {
+    clipDurations, maxClips, enableSubtitles, subtitleStyle,
+  }).catch((err) => {
     req.log.error({ err }, "Local video processing failed");
   });
 

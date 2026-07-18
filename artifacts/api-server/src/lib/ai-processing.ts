@@ -592,9 +592,10 @@ async function extractClip(
   const isVertical = format === "shorts" || format === "reels" || format === "tiktok";
 
   // setsar=1 fixes non-square pixel (SAR) artifacts inherited from source
+  // lanczos = high-quality upscaling algorithm; unsharp sharpens after scale
   let vf = isVertical
-    ? `crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1`
-    : `crop='min(iw,ih)':'min(ih,iw)',scale=1080:1080,setsar=1`;
+    ? `crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=1080:1920:force_original_aspect_ratio=decrease:flags=lanczos,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,unsharp=5:5:0.8:3:3:0.0`
+    : `crop='min(iw,ih)':'min(ih,iw)',scale=1080:1080:flags=lanczos,setsar=1,unsharp=5:5:0.8:3:3:0.0`;
 
   // Burn subtitles if requested and ASS generation succeeds
   if (subtitleOptions) {
@@ -605,9 +606,9 @@ async function extractClip(
       subtitleOptions.assPath,
     );
     if (hasASS) {
-      // subtitles filter requires colons in path to be escaped on some platforms
       const safePath = subtitleOptions.assPath.replace(/\\/g, "/");
-      vf += `,subtitles='${safePath}'`;
+      // fontsdir tells libass where to find the DejaVu font
+      vf += `,subtitles='${safePath}':fontsdir=/usr/share/fonts/truetype/dejavu`;
     }
   }
 
