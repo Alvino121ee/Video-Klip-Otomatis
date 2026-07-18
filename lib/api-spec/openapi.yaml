@@ -1,22 +1,29 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Auto Clipper API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: projects
+    description: Video projects
+  - name: clips
+    description: Generated clips
+  - name: moments
+    description: Viral moments
+  - name: dashboard
+    description: Dashboard analytics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +31,617 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{id}/process:
+    post:
+      operationId: processProject
+      tags: [projects]
+      summary: Start AI processing for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessOptions"
+      responses:
+        "200":
+          description: Processing started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}/clips:
+    get:
+      operationId: listProjectClips
+      tags: [clips]
+      summary: List clips for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of clips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Clip"
+
+  /projects/{id}/moments:
+    get:
+      operationId: listProjectMoments
+      tags: [moments]
+      summary: List viral moments for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of viral moments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ViralMoment"
+
+  /clips:
+    get:
+      operationId: listClips
+      tags: [clips]
+      summary: List all clips across projects
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, rendering, ready, failed]
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [shorts, reels, tiktok, square]
+      responses:
+        "200":
+          description: List of clips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Clip"
+
+  /clips/{id}:
+    get:
+      operationId: getClip
+      tags: [clips]
+      summary: Get clip by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Clip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clip"
+    patch:
+      operationId: updateClip
+      tags: [clips]
+      summary: Update clip settings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClipUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clip"
+    delete:
+      operationId: deleteClip
+      tags: [clips]
+      summary: Delete clip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /clips/{id}/export:
+    post:
+      operationId: exportClip
+      tags: [clips]
+      summary: Export/render a clip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportOptions"
+      responses:
+        "200":
+          description: Export started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clip"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get overall dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent project and clip activity
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /dashboard/top-clips:
+    get:
+      operationId: getTopClips
+      tags: [dashboard]
+      summary: Get top clips by viral score
+      responses:
+        "200":
+          description: Top clips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Clip"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Project:
+      type: object
+      required: [id, title, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        videoSource:
+          type: ["string", "null"]
+          description: "url or upload"
+        thumbnailUrl:
+          type: ["string", "null"]
+        duration:
+          type: ["number", "null"]
+          description: Duration in seconds
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        category:
+          type: ["string", "null"]
+          enum: [podcast, gaming, tutorial, education, review, interview, news, streaming, vlog, comedy, sports, null]
+        language:
+          type: ["string", "null"]
+        clipCount:
+          type: integer
+        momentCount:
+          type: integer
+        processingProgress:
+          type: ["number", "null"]
+          description: 0-100
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProjectInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        videoUrl:
+          type: string
+        videoSource:
+          type: string
+          enum: [url, upload]
+        category:
+          type: string
+          enum: [podcast, gaming, tutorial, education, review, interview, news, streaming, vlog, comedy, sports]
+        language:
+          type: string
+
+    ProjectUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        category:
+          type: string
+          enum: [podcast, gaming, tutorial, education, review, interview, news, streaming, vlog, comedy, sports]
+        language:
+          type: string
+
+    ProcessOptions:
+      type: object
+      properties:
+        clipDurations:
+          type: array
+          items:
+            type: integer
+          description: "Clip durations in seconds: 15, 30, 45, 60, 90"
+        targetFormats:
+          type: array
+          items:
+            type: string
+            enum: [shorts, reels, tiktok, square]
+        maxClips:
+          type: integer
+          description: Max number of clips to generate
+        enableSubtitles:
+          type: boolean
+        enableAutoReframe:
+          type: boolean
+        subtitleStyle:
+          type: string
+          enum: [word_by_word, karaoke, highlight, pop, bounce, glow, fade, zoom]
+
+    Clip:
+      type: object
+      required: [id, projectId, title, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        projectTitle:
+          type: ["string", "null"]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        thumbnailUrl:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        startTime:
+          type: ["number", "null"]
+          description: Start time in seconds within source video
+        endTime:
+          type: ["number", "null"]
+          description: End time in seconds within source video
+        duration:
+          type: ["number", "null"]
+        format:
+          type: ["string", "null"]
+          enum: [shorts, reels, tiktok, square, null]
+        status:
+          type: string
+          enum: [pending, rendering, ready, failed]
+        viralScore:
+          type: ["number", "null"]
+          description: 0-100
+        engagementScore:
+          type: ["number", "null"]
+          description: 0-100
+        retentionScore:
+          type: ["number", "null"]
+          description: 0-100
+        confidenceScore:
+          type: ["number", "null"]
+          description: 0-100
+        selectionReason:
+          type: ["string", "null"]
+        subtitleStyle:
+          type: ["string", "null"]
+          enum: [word_by_word, karaoke, highlight, pop, bounce, glow, fade, zoom, null]
+        hasSubtitles:
+          type: boolean
+        isAutoReframed:
+          type: boolean
+        hookText:
+          type: ["string", "null"]
+          description: Detected hook/opening text
+        suggestedTitle:
+          type: ["string", "null"]
+        suggestedHashtags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ClipUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        subtitleStyle:
+          type: string
+          enum: [word_by_word, karaoke, highlight, pop, bounce, glow, fade, zoom]
+        hasSubtitles:
+          type: boolean
+        isAutoReframed:
+          type: boolean
+
+    ExportOptions:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [shorts, reels, tiktok, square]
+        quality:
+          type: string
+          enum: [720p, 1080p, 4k]
+
+    ViralMoment:
+      type: object
+      required: [id, projectId, startTime, endTime, viralScore, createdAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        startTime:
+          type: number
+        endTime:
+          type: number
+        duration:
+          type: number
+        viralScore:
+          type: number
+          description: 0-100
+        engagementScore:
+          type: ["number", "null"]
+        retentionScore:
+          type: ["number", "null"]
+        confidenceScore:
+          type: ["number", "null"]
+        momentType:
+          type: ["string", "null"]
+          enum: [hook, punchline, emotion, debate, education, surprise, laugh, highlight, null]
+        transcript:
+          type: ["string", "null"]
+        selectionReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    DashboardStats:
+      type: object
+      required: [totalProjects, totalClips, totalMoments, avgViralScore, statusBreakdown, formatBreakdown]
+      properties:
+        totalProjects:
+          type: integer
+        totalClips:
+          type: integer
+        totalMoments:
+          type: integer
+        completedProjects:
+          type: integer
+        processingProjects:
+          type: integer
+        avgViralScore:
+          type: number
+        topViralScore:
+          type: number
+        totalVideoDuration:
+          type: number
+          description: Total seconds of source video processed
+        statusBreakdown:
+          type: object
+          additionalProperties:
+            type: integer
+        formatBreakdown:
+          type: object
+          additionalProperties:
+            type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, type, title, timestamp]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [project_created, project_completed, clip_ready, processing_started]
+        title:
+          type: string
+        subtitle:
+          type: ["string", "null"]
+        entityId:
+          type: integer
+        entityType:
+          type: string
+          enum: [project, clip]
+        timestamp:
+          type: string
+          format: date-time
