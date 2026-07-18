@@ -55,6 +55,8 @@ async function ytdlpBase(): Promise<string[]> {
   return [
     "--no-playlist",
     "--no-check-certificates",
+    // Workaround untuk SABR streaming YouTube (yt-dlp issue #12482)
+    "--extractor-args", "youtube:player_client=tv,web",
     ...await ensureCookies(),
   ];
 }
