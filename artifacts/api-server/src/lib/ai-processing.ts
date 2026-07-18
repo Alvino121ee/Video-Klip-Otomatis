@@ -110,6 +110,9 @@ export async function realAiProcessing(
 
     const language = project.language ?? "id";
 
+    // rawSegments = fine-grained sentence-level timing for subtitle burning
+    let rawSegments: Array<{ start: number; end: number; text: string }> = [];
+
     // Coba subtitle: bahasa proyek → English → semua bahasa
     const subResult =
       await downloadSubtitles(videoUrl, tmpDir, language) ||
@@ -117,7 +120,7 @@ export async function realAiProcessing(
       await downloadSubtitles(videoUrl, tmpDir, ".*");
 
     if (subResult) {
-      ({ segments, transcript: fullTranscript } = subResult);
+      ({ segments, transcript: fullTranscript, rawSegments } = subResult);
       // Estimate duration from last segment
       if (segments.length > 0 && !videoDuration) {
         videoDuration = Math.ceil(segments[segments.length - 1].end) + 30;
@@ -142,6 +145,7 @@ export async function realAiProcessing(
       await setProgress(20);
       const whisperResult = await runWhisper(audioPath, language);
       segments = whisperResult.segments;
+      rawSegments = whisperResult.segments; // Whisper is already sentence-level
       fullTranscript = whisperResult.transcript;
       if (!videoDuration) videoDuration = whisperResult.duration ?? 0;
     }
@@ -233,7 +237,12 @@ export async function realAiProcessing(
         const thumbPath = path.join(clipsOut, thumbFile);
 
         try {
-          await extractClip(videoPath, clipPath, start, end, format);
+          const subtitleOpts = (options.enableSubtitles && rawSegments.length > 0) ? {
+            segments: rawSegments,
+            style: options.subtitleStyle ?? "highlight",
+            assPath: path.join(tmpDir, `subs-${i}.ass`),
+          } : undefined;
+          await extractClip(videoPath, clipPath, start, end, format, subtitleOpts);
           await extractThumbnail(videoPath, thumbPath, start + (end - start) * 0.3);
         } catch {
           // clip extraction failed, continue without file
@@ -290,6 +299,7 @@ export async function realAiProcessing(
 async function downloadSubtitles(url: string, tmpDir: string, language: string = "id"): Promise<{
   transcript: string;
   segments: Array<{ start: number; end: number; text: string }>;
+  rawSegments: Array<{ start: number; end: number; text: string }>;
 } | null> {
   try {
     await execFileAsync(YTDLP_BIN, [
@@ -312,13 +322,14 @@ async function downloadSubtitles(url: string, tmpDir: string, language: string =
   }
 }
 
-function parseSubtitles(content: string): { transcript: string; segments: Array<{ start: number; end: number; text: string }> } {
-  const segments: Array<{ start: number; end: number; text: string }> = [];
+function parseSubtitles(content: string): {
+  transcript: string;
+  segments: Array<{ start: number; end: number; text: string }>;
+  rawSegments: Array<{ start: number; end: number; text: string }>;
+} {
+  const rawSegments: Array<{ start: number; end: number; text: string }> = [];
 
-  // VTT / SRT time pattern: 00:00:00.000 --> 00:00:05.000
-  const timeRegex = /(\d{1,2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[.,](\d{3})/g;
   const lines = content.split("\n");
-
   let i = 0;
   while (i < lines.length) {
     const line = lines[i].trim();
@@ -329,25 +340,24 @@ function parseSubtitles(content: string): { transcript: string; segments: Array<
       const start = toSec(match[1], match[2], match[3], match[4]);
       const end = toSec(match[5], match[6], match[7], match[8]);
 
-      // Collect text lines
       const textLines: string[] = [];
       i++;
       while (i < lines.length && lines[i].trim() !== "" && !lines[i].match(/^\d{1,2}:\d{2}:\d{2}/)) {
-        const txt = lines[i].replace(/<[^>]+>/g, "").trim(); // strip HTML tags
+        const txt = lines[i].replace(/<[^>]+>/g, "").trim();
         if (txt) textLines.push(txt);
         i++;
       }
       const text = textLines.join(" ");
-      if (text) segments.push({ start, end, text });
+      if (text) rawSegments.push({ start, end, text });
     } else {
       i++;
     }
   }
 
-  // Merge very short adjacent segments into ~30s chunks for cleaner analysis
+  // Merge into ~30s chunks for DeepSeek analysis (fewer tokens)
   const merged: Array<{ start: number; end: number; text: string }> = [];
   let cur: { start: number; end: number; text: string } | null = null;
-  for (const seg of segments) {
+  for (const seg of rawSegments) {
     if (!cur) { cur = { ...seg }; continue; }
     if (seg.end - cur.start < 30 && seg.text !== cur.text) {
       cur.end = seg.end;
@@ -359,7 +369,11 @@ function parseSubtitles(content: string): { transcript: string; segments: Array<
   }
   if (cur?.text) merged.push(cur);
 
-  return { transcript: merged.map(s => s.text).join(" "), segments: merged };
+  return {
+    transcript: merged.map(s => s.text).join(" "),
+    segments: merged,
+    rawSegments,
+  };
 }
 
 async function downloadAudio(url: string, outputPath: string): Promise<void> {
@@ -497,26 +511,120 @@ async function downloadVideoSections(url: string, outputPath: string, sections: 
   ], { timeout: 600_000 });
 }
 
-async function extractClip(videoPath: string, outputPath: string, start: number, end: number, format: string): Promise<void> {
-  // Aspect ratio filter for vertical formats
-  const vf = (format === "shorts" || format === "reels" || format === "tiktok")
-    ? `crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2`
-    : `crop='min(iw,ih)':'min(ih,iw)',scale=1080:1080`;
+/** Generate an ASS subtitle file from transcript segments, timed relative to clip start. */
+async function generateSubtitleASS(
+  segments: Array<{ start: number; end: number; text: string }>,
+  clipStart: number,
+  clipEnd: number,
+  style: string,
+  outPath: string,
+): Promise<boolean> {
+  const clipDur = clipEnd - clipStart;
+  const subs = segments
+    .filter(s => s.end > clipStart && s.start < clipEnd)
+    .map(s => ({
+      start: Math.max(0, s.start - clipStart),
+      end: Math.min(clipDur, s.end - clipStart),
+      // Escape ASS special characters
+      text: s.text.replace(/\\/g, "").replace(/\{/g, "").replace(/\}/g, "").trim(),
+    }))
+    .filter(s => s.text && s.end > s.start);
+
+  if (subs.length === 0) return false;
+
+  const toASSTime = (sec: number): string => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    const cs = Math.round((sec % 1) * 100);
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
+  };
+
+  // ASS style format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,
+  //                   Bold,Italic,Underline,Strikeout,ScaleX,ScaleY,Spacing,Angle,
+  //                   BorderStyle(3=box),Outline,Shadow,Alignment(2=btm-center),
+  //                   MarginL,MarginR,MarginV,Encoding
+  // Colours: &HAABBGGRR  (AA=alpha 00=opaque, BGR order)
+  const styleMap: Record<string, string> = {
+    highlight:    "Style: Default,DejaVu Sans,60,&H00FFFFFF,&H000000FF,&H00000000,&H80F65C8B,-1,0,0,0,100,100,2,0,3,0,0,2,40,40,80,1",
+    karaoke:      "Style: Default,DejaVu Sans,60,&H00FFFFFF,&H0000FFFF,&H00000000,&HAA000000,-1,0,0,0,100,100,0,0,1,3,1,2,40,40,80,1",
+    word_by_word: "Style: Default,DejaVu Sans,56,&H00FFFFFF,&H000000FF,&H00000000,&HAA000000,0,0,0,0,100,100,0,0,1,3,1,2,40,40,80,1",
+    pop:          "Style: Default,DejaVu Sans,72,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,5,2,2,40,40,80,1",
+    glow:         "Style: Default,DejaVu Sans,60,&H00FFFFFF,&H000000FF,&H00F65C8B,&H00F65C8B,-1,0,0,0,100,100,0,0,1,4,4,2,40,40,80,1",
+  };
+  const styleStr = styleMap[style] ?? styleMap.highlight;
+
+  const dialogues = subs
+    .map(s => `Dialogue: 0,${toASSTime(s.start)},${toASSTime(s.end)},Default,,0,0,0,,${s.text}`)
+    .join("\n");
+
+  const ass = `[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 1
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+${styleStr}
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+${dialogues}
+`;
+
+  await fs.writeFile(outPath, ass, "utf-8");
+  return true;
+}
+
+async function extractClip(
+  videoPath: string,
+  outputPath: string,
+  start: number,
+  end: number,
+  format: string,
+  subtitleOptions?: {
+    segments: Array<{ start: number; end: number; text: string }>;
+    style: string;
+    assPath: string;
+  },
+): Promise<void> {
+  const isVertical = format === "shorts" || format === "reels" || format === "tiktok";
+
+  // setsar=1 fixes non-square pixel (SAR) artifacts inherited from source
+  let vf = isVertical
+    ? `crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1`
+    : `crop='min(iw,ih)':'min(ih,iw)',scale=1080:1080,setsar=1`;
+
+  // Burn subtitles if requested and ASS generation succeeds
+  if (subtitleOptions) {
+    const hasASS = await generateSubtitleASS(
+      subtitleOptions.segments,
+      start, end,
+      subtitleOptions.style,
+      subtitleOptions.assPath,
+    );
+    if (hasASS) {
+      // subtitles filter requires colons in path to be escaped on some platforms
+      const safePath = subtitleOptions.assPath.replace(/\\/g, "/");
+      vf += `,subtitles='${safePath}'`;
+    }
+  }
 
   await execFileAsync("ffmpeg", [
-    "-ss", String(start),
-    "-to", String(end),
+    "-ss", String(start),          // fast input seek
     "-i", videoPath,
+    "-t", String(end - start),     // accurate duration cut (not -to)
     "-vf", vf,
     "-c:v", "libx264",
     "-preset", "fast",
-    "-crf", "28",
+    "-crf", "23",                  // was 28 — better quality
     "-c:a", "aac",
-    "-b:a", "128k",
+    "-b:a", "192k",               // was 128k
     "-movflags", "+faststart",
     "-y",
     outputPath,
-  ], { timeout: 120_000 });
+  ], { timeout: 180_000 });
 }
 
 async function extractThumbnail(videoPath: string, outputPath: string, timestamp: number): Promise<void> {

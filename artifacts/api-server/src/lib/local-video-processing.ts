@@ -172,7 +172,12 @@ export async function localVideoProcessing(
       const clipUrlBase = `/api/media/clips/project-${projectId}`;
 
       try {
-        await extractClip(videoFilePath, clipPath, start, end, format);
+        const subtitleOpts = (options.enableSubtitles && segments.length > 0) ? {
+          segments,
+          style: options.subtitleStyle ?? "highlight",
+          assPath: path.join(tmpDir, `subs-${i}.ass`),
+        } : undefined;
+        await extractClip(videoFilePath, clipPath, start, end, format, subtitleOpts);
         await extractThumbnail(videoFilePath, thumbPath, start + (end - start) * 0.3);
       } catch (e) {
         console.error(`[clip-${i}] Gagal potong klip:`, e);
@@ -299,19 +304,112 @@ Aturan:
   return { moments: parsed.moments ?? [] };
 }
 
-async function extractClip(src: string, out: string, start: number, end: number, format: string): Promise<void> {
-  const vf = (format === "shorts" || format === "reels" || format === "tiktok")
-    ? `crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2`
-    : `crop='min(iw,ih)':'min(ih,iw)',scale=1080:1080`;
+/** Generate an ASS subtitle file from transcript segments, timed relative to clip start. */
+async function generateSubtitleASS(
+  segments: Array<{ start: number; end: number; text: string }>,
+  clipStart: number,
+  clipEnd: number,
+  style: string,
+  outPath: string,
+): Promise<boolean> {
+  const clipDur = clipEnd - clipStart;
+  const subs = segments
+    .filter(s => s.end > clipStart && s.start < clipEnd)
+    .map(s => ({
+      start: Math.max(0, s.start - clipStart),
+      end: Math.min(clipDur, s.end - clipStart),
+      text: s.text.replace(/\\/g, "").replace(/\{/g, "").replace(/\}/g, "").trim(),
+    }))
+    .filter(s => s.text && s.end > s.start);
+
+  if (subs.length === 0) return false;
+
+  const toASSTime = (sec: number): string => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    const cs = Math.round((sec % 1) * 100);
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
+  };
+
+  // Colours: &HAABBGGRR (AA=alpha 00=opaque, then BGR order)
+  const styleMap: Record<string, string> = {
+    highlight:    "Style: Default,DejaVu Sans,60,&H00FFFFFF,&H000000FF,&H00000000,&H80F65C8B,-1,0,0,0,100,100,2,0,3,0,0,2,40,40,80,1",
+    karaoke:      "Style: Default,DejaVu Sans,60,&H00FFFFFF,&H0000FFFF,&H00000000,&HAA000000,-1,0,0,0,100,100,0,0,1,3,1,2,40,40,80,1",
+    word_by_word: "Style: Default,DejaVu Sans,56,&H00FFFFFF,&H000000FF,&H00000000,&HAA000000,0,0,0,0,100,100,0,0,1,3,1,2,40,40,80,1",
+    pop:          "Style: Default,DejaVu Sans,72,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,5,2,2,40,40,80,1",
+    glow:         "Style: Default,DejaVu Sans,60,&H00FFFFFF,&H000000FF,&H00F65C8B,&H00F65C8B,-1,0,0,0,100,100,0,0,1,4,4,2,40,40,80,1",
+  };
+  const styleStr = styleMap[style] ?? styleMap.highlight;
+
+  const dialogues = subs
+    .map(s => `Dialogue: 0,${toASSTime(s.start)},${toASSTime(s.end)},Default,,0,0,0,,${s.text}`)
+    .join("\n");
+
+  const ass = `[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 1
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+${styleStr}
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+${dialogues}
+`;
+
+  await fs.writeFile(outPath, ass, "utf-8");
+  return true;
+}
+
+async function extractClip(
+  src: string,
+  out: string,
+  start: number,
+  end: number,
+  format: string,
+  subtitleOptions?: {
+    segments: Array<{ start: number; end: number; text: string }>;
+    style: string;
+    assPath: string;
+  },
+): Promise<void> {
+  const isVertical = format === "shorts" || format === "reels" || format === "tiktok";
+
+  // setsar=1 fixes non-square pixel (SAR) artifacts inherited from source
+  let vf = isVertical
+    ? `crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1`
+    : `crop='min(iw,ih)':'min(ih,iw)',scale=1080:1080,setsar=1`;
+
+  if (subtitleOptions) {
+    const hasASS = await generateSubtitleASS(
+      subtitleOptions.segments,
+      start, end,
+      subtitleOptions.style,
+      subtitleOptions.assPath,
+    );
+    if (hasASS) {
+      const safePath = subtitleOptions.assPath.replace(/\\/g, "/");
+      vf += `,subtitles='${safePath}'`;
+    }
+  }
 
   await execFileAsync("ffmpeg", [
-    "-ss", String(start), "-to", String(end),
+    "-ss", String(start),        // fast input seek
     "-i", src,
+    "-t", String(end - start),   // accurate duration cut (not -to)
     "-vf", vf,
-    "-c:v", "libx264", "-preset", "fast", "-crf", "28",
-    "-c:a", "aac", "-b:a", "128k",
-    "-movflags", "+faststart", "-y", out,
-  ], { timeout: 120_000 });
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "23",                // was 28 — better quality
+    "-c:a", "aac",
+    "-b:a", "192k",             // was 128k
+    "-movflags", "+faststart",
+    "-y", out,
+  ], { timeout: 180_000 });
 }
 
 async function extractThumbnail(src: string, out: string, ts: number): Promise<void> {
