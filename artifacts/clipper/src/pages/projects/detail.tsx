@@ -162,7 +162,14 @@ export default function ProjectDetail() {
         <div className="lg:col-span-1 space-y-6">
           <div className="rounded-xl border border-white/10 bg-card overflow-hidden shadow-xl sticky top-6">
             <div className="aspect-video bg-black relative flex items-center justify-center group">
-              {project.thumbnailUrl ? (
+              {project.videoSource === 'upload' && project.videoUrl ? (
+                <video
+                  src={project.videoUrl}
+                  controls
+                  className="w-full h-full object-contain"
+                  preload="metadata"
+                />
+              ) : project.thumbnailUrl ? (
                 <>
                   <img src={project.thumbnailUrl} alt="Thumbnail" className="w-full h-full object-cover opacity-60" />
                   <div className="absolute inset-0 flex items-center justify-center">

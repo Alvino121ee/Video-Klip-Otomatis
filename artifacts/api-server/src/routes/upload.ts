@@ -5,7 +5,7 @@ import fs from "fs/promises";
 import { db, projectsTable } from "@workspace/db";
 import { localVideoProcessing } from "../lib/local-video-processing";
 
-const UPLOADS_DIR = path.resolve(__dirname, "../../public/uploads");
+const UPLOADS_DIR = path.resolve(__dirname, "../public/uploads");
 
 // Pastikan folder uploads ada
 fs.mkdir(UPLOADS_DIR, { recursive: true }).catch(() => {});

@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
+import path from "path";
 import { db, projectsTable, clipsTable, viralMomentsTable } from "@workspace/db";
 import { realAiProcessing } from "../lib/ai-processing";
+import { localVideoProcessing } from "../lib/local-video-processing";
 import {
   ListProjectsQueryParams,
   CreateProjectBody,
@@ -133,10 +135,18 @@ router.post("/projects/:id/process", async (req, res): Promise<void> => {
     return;
   }
 
-  // Run real AI processing pipeline asynchronously
-  realAiProcessing(params.data.id, options.data).catch((err) => {
-    req.log.error({ err }, "AI processing failed");
-  });
+  // Route local uploads to localVideoProcessing; YouTube URLs to realAiProcessing
+  if (project.videoSource === "upload" && project.videoUrl) {
+    const filename = path.basename(project.videoUrl);
+    const filePath = path.resolve(__dirname, "../public/uploads", filename);
+    localVideoProcessing(params.data.id, filePath, options.data).catch((err) => {
+      req.log.error({ err }, "Local video processing failed");
+    });
+  } else {
+    realAiProcessing(params.data.id, options.data).catch((err) => {
+      req.log.error({ err }, "AI processing failed");
+    });
+  }
 
   res.json(project);
 });
