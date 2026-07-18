@@ -23,11 +23,36 @@ const deepseek = new OpenAI({
   baseURL: "https://api.deepseek.com",
 });
 
-const WHISPER_PYTHON = path.resolve(__dirname, "../../../.whisper-venv/bin/python3");
+const WHISPER_PYTHON = process.env.WHISPER_PYTHON ?? "python3";
 const TRANSCRIBE_SCRIPT = path.resolve(__dirname, "../../scripts/transcribe.py");
+const FETCH_TRANSCRIPT_SCRIPT = path.resolve(__dirname, "../../scripts/fetch_transcript.py");
 const PUBLIC_DIR = path.resolve(__dirname, "../../public");
 const CLIPS_DIR = path.join(PUBLIC_DIR, "clips");
 const TEMP_DIR = "/tmp/clipper-processing";
+const COOKIES_FILE = "/tmp/yt-cookies.txt";
+
+// Tulis cookies dari env var ke file saat pertama kali dipakai
+let cookiesReady = false;
+async function ensureCookies(): Promise<string[]> {
+  const content = process.env.YOUTUBE_COOKIES;
+  console.log(`[cookies] YOUTUBE_COOKIES tersedia: ${!!content}, panjang: ${content?.length ?? 0}`);
+  if (!content) return [];
+  if (!cookiesReady) {
+    await fs.writeFile(COOKIES_FILE, content, "utf-8");
+    cookiesReady = true;
+    console.log(`[cookies] File cookies ditulis ke ${COOKIES_FILE}`);
+  }
+  return ["--cookies", COOKIES_FILE];
+}
+
+// Argumen yt-dlp standar
+async function ytdlpBase(): Promise<string[]> {
+  return [
+    "--no-playlist",
+    "--no-check-certificates",
+    ...await ensureCookies(),
+  ];
+}
 
 export async function realAiProcessing(
   projectId: number,
@@ -48,7 +73,7 @@ export async function realAiProcessing(
 
   const fail = async (msg: string) => {
     await db.update(projectsTable)
-      .set({ status: "failed", processingProgress: 0 })
+      .set({ status: "failed", processingProgress: 0, errorMessage: msg })
       .where(eq(projectsTable.id, projectId));
     throw new Error(msg);
   };
@@ -74,7 +99,12 @@ export async function realAiProcessing(
     let videoDuration: number = project.duration ?? 0;
 
     const language = project.language ?? "id";
-    const subResult = await downloadSubtitles(videoUrl, tmpDir, language);
+
+    // Coba subtitle: bahasa proyek → English → semua bahasa
+    const subResult =
+      await downloadSubtitles(videoUrl, tmpDir, language) ||
+      (language !== "en" ? await downloadSubtitles(videoUrl, tmpDir, "en") : null) ||
+      await downloadSubtitles(videoUrl, tmpDir, ".*");
 
     if (subResult) {
       ({ segments, transcript: fullTranscript } = subResult);
@@ -86,7 +116,19 @@ export async function realAiProcessing(
       // Fallback: download audio + whisper
       await setProgress(10);
       const audioPath = path.join(tmpDir, "audio.wav");
-      await downloadAudio(videoUrl, audioPath);
+      try {
+        await downloadAudio(videoUrl, audioPath);
+      } catch (e: any) {
+        const msg = e?.stderr ?? e?.message ?? String(e);
+        console.error(`[yt-dlp audio error]\n${msg}`);
+        if (msg.includes("Sign in") || msg.includes("bot") || msg.includes("confirm")) {
+          return fail("YouTube memblokir download: bot detection. Pastikan YOUTUBE_COOKIES sudah diisi dengan cookies yang valid dan belum expired.");
+        }
+        if (msg.includes("Private video") || msg.includes("private")) {
+          return fail("Video ini bersifat private dan tidak bisa diproses.");
+        }
+        return fail(`Gagal download audio: ${msg.slice(0, 300)}`);
+      }
       await setProgress(20);
       const whisperResult = await runWhisper(audioPath, language);
       segments = whisperResult.segments;
@@ -229,7 +271,7 @@ async function downloadSubtitles(url: string, tmpDir: string, language: string =
       "--sub-langs", `${language}.*`,
       "--skip-download",
       "--output", path.join(tmpDir, "subs.%(ext)s"),
-      "--no-playlist",
+      ...await ytdlpBase(),
       url,
     ], { timeout: 30_000 });
 
@@ -298,7 +340,7 @@ async function downloadAudio(url: string, outputPath: string): Promise<void> {
   await execFileAsync("yt-dlp", [
     "-x", "--audio-format", "wav", "--audio-quality", "3",
     "--output", outputPath,
-    "--no-playlist",
+    ...await ytdlpBase(),
     url,
   ], { timeout: 300_000 });
 }

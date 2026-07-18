@@ -125,6 +125,17 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {/* Error State */}
+      {project.status === 'failed' && project.errorMessage && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 flex gap-4 items-start">
+          <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-destructive text-sm mb-1">Gagal memproses video</p>
+            <p className="text-sm text-muted-foreground">{project.errorMessage}</p>
+          </div>
+        </div>
+      )}
+
       {/* Processing State Overlay */}
       {project.status === 'processing' && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 md:p-10 text-center relative overflow-hidden">
